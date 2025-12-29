@@ -1,0 +1,170 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>FastAPI Sync + SSE</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 900px;
+      margin: 24px auto;
+    }
+
+    textarea {
+      width: 100%;
+      height: 80px;
+    }
+
+    pre {
+      background: #f5f5f5;
+      padding: 12px;
+      overflow: auto;
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 8px 12px;
+    }
+
+    .pill {
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #eee;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>FastAPI: sync endpoint + async streaming endpoint (SSE)</h2>
+
+  <label>Input</label>
+  <textarea id="text">hello streaming world</textarea>
+
+  <div class="row">
+    <label>steps <input id="steps" type="number" value="8" min="1" max="50"></label>
+    <label>delay_ms <input id="delay" type="number" value="250" min="0" max="5000"></label>
+    <button id="btnSync">Sync Call</button>
+    <button id="btnStream">Start stream</button>
+    <button id="btnCancel" disabled>Cancel job</button>
+    <span class="pill" id="statusPill">idle</span>
+  </div>
+
+  <h3>Sync response</h3>
+  <pre id="syncOut"></pre>
+
+  <h3>Stream events</h3>
+  <pre id="streamOut"></pre>
+
+  <script>
+    const el = (id) => document.getElementById(id);
+
+    let currentJobId = null;
+    let es = null;
+
+    function payload() {
+      return {
+        text: el("text").value,
+        steps: Number(el("steps").value),
+        delay_ms: Number(el("delay").value),
+      };
+    }
+
+    function setStatus(s) {
+      el("statusPill").textContent = s;
+    }
+
+    function logStream(line) {
+      el("streamOut").textContent += line + "\n";
+      el("streamOut").scrollTop = el("streamOut").scrollHeight;
+    }
+
+    function resetStreamUI() {
+      el("streamOut").textContent = "";
+      setStatus("idle");
+      el("btnCancel").disabled = true;
+    }
+
+    async function callSync() {
+      el("syncOut").textContent = "";
+      const res = await fetch("http://127.0.0.1:8000/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload()),
+      });
+      el("syncOut").textContent = JSON.stringify(await res.json(), null, 2);
+    }
+
+    async function startStream() {
+      // 1) Create job
+      const res = await fetch("http://127.0.0.1:8000/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload()),
+      });
+      const job = await res.json();
+
+      currentJobId = job.id;
+      setStatus(job.status);
+      el("btnCancel").disabled = false;
+
+      // 2) Subscribe via EventSource (GET-only)
+      es = new EventSource(`http://127.0.0.1:8000/jobs/${currentJobId}/events`);
+
+      // Minimal: handle all event types via onmessage-style listeners
+      const kinds = ["progress", "completed", "failed", "cancelled", "ping"];
+      for (const k of kinds) {
+        es.addEventListener(k, (ev) => {
+          const data = JSON.parse(ev.data);
+
+          // data.kind, data.ts_ms, data.seq, data.progress, data.message, data.result
+          setStatus(data.kind);
+          logStream(`[${data.kind}] ts=${data.ts_ms} seq=${data.seq} ` +
+            `progress=${data.progress ?? ""} msg=${data.message ?? ""} ` +
+            `result=${data.result ? JSON.stringify(data.result) : ""}`);
+
+          if (["completed", "failed", "cancelled"].includes(data.kind)) {
+            es.close();
+            es = null;
+            el("btnCancel").disabled = true;
+          }
+        });
+      }
+
+      es.onerror = () => {
+        // basic: show that the stream broke
+        logStream("[error] EventSource connection error");
+      };
+    }
+
+    async function cancelJob(keepalive = false) {
+      if (!currentJobId) return;
+      try {
+        console.log("cancelling job", currentJobId, "keepalive=", keepalive);
+        await fetch(`http://127.0.0.1:8000/jobs/${currentJobId}/cancel`, { method: "POST", keepalive });
+      } catch (_) {
+        // best-effort; tab may be closing
+      }
+    }
+
+    // Cancel if tab closes:
+    // - Use keepalive so the browser is allowed to send during unload
+    // - Also close EventSource so backend sees disconnect faster
+    window.addEventListener("unload", () => {
+      if (es) { es.close(); es = null; }
+      cancelJob(true);
+    });
+
+    el("btnSync").onclick = callSync;
+    el("btnStream").onclick = () => { resetStreamUI(); startStream(); };
+    el("btnCancel").onclick = cancelJob;
+  </script>
+</body>
+
+</html>

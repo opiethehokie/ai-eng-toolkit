@@ -12,9 +12,8 @@ MAX_WINDOW_SIZE = 1000
 BATCH_SIZE = 100
 MAX_DELAY = 0.5
 
-
 # streaming structures
-hll = HyperLogLog(p=10)
+hll = HyperLogLog(p=8)
 cms = CountMinSketch(width=1000, depth=5)
 value_window = deque(maxlen=MAX_WINDOW_SIZE)
 latency_window = deque(maxlen=MAX_WINDOW_SIZE)
@@ -58,8 +57,8 @@ def process_batch(events: list[dict]) -> None:
 
     print(f"\n[{time.strftime('%X')}] Processed {n} events")
 
-    print(f"Estimated unique users: {len(hll):.0f}")
-    print(f"Estimated frequency of user_id=123: {cms.check('123'):.0f}")
+    print(f"Estimated unique users: {hll.count():.0f}")
+    print(f"Estimated number of events with user_id=123: {cms.check('123'):.0f}")
 
     top_items = Counter([round(v) for v in value_window]).most_common(3)
     print(f"Top-3 value buckets: {top_items}")
@@ -97,16 +96,12 @@ async def subscriber(queue: asyncio.Queue) -> None:
 
 async def log_queue_size(queue: asyncio.Queue, interval=5.0) -> None:
     while True:
-        print(
-            f"\n[{time.strftime('%X')}] Queue size: {queue.qsize()} / {queue.maxsize}"
-        )
+        print(f"\n[{time.strftime('%X')}] Queue size: {queue.qsize()} / {queue.maxsize}")
         await asyncio.sleep(interval)
 
 
 async def main():
-    queue = asyncio.Queue(
-        maxsize=10
-    )  # simulated pub-sub queue wit bounded size for backpressure
+    queue = asyncio.Queue(maxsize=10)  # simulated pub-sub queue wit bounded size for backpressure
     await asyncio.gather(publisher(queue), subscriber(queue), log_queue_size(queue))
 
 

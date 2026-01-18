@@ -23,4 +23,3 @@ Run with: `uvicorn async-backend:app --reload`
 [streaming-frontend.html](streaming-frontend.html)
 
 Open in a web browser to demo the API.
-

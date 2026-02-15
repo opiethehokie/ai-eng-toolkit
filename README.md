@@ -1,25 +1,49 @@
 # AI Engineering
 
-This repository contains example code from explorations in AI engineering. Run `uv sync` to install necessary dependencies.
+Small, focused examples from my AI engineering explorations. This repo is meant to be a portfolio of practical patterns, not a framework.
+
+## Setup
+
+- Python `>=3.13`
+- Install deps: `uv sync`
+- For LangChain demos: set `OPENAI_API_KEY` (via `.env` or env vars)
+
+## Streaming API (LLM-style SSE)
+
+- Backend: `streaming-backend.py`  
+  Single `POST /stream` endpoint that streams tokens via Server-Sent Events, supports `Last-Event-ID` resume, and emits `ping/token/done` events.
+- Frontend: `streaming-frontend.html`  
+  Minimal fetch + `ReadableStream` client with stop/resume controls.
+
+```
+Client UI            FastAPI /stream
+   |  POST (text)         |
+   |--------------------->|
+   |  SSE: ping           |
+   |<---------------------|
+   |  SSE: token ...      |
+   |<---------------------|
+   |  SSE: token ...      |
+   |<---------------------|
+   |  SSE: done           |
+   |<---------------------|
+```
+
+Run the backend: `uvicorn streaming-backend:app --reload`  
+Open the HTML file directly in a browser to demo.
 
 ## Streaming Data Pipeline
 
-[streaming-data-pipeline.py](streaming-data-pipeline.py)
+- `streaming-data-pipeline.py`  
+  Simulated real-time pipeline using `asyncio` that tracks unique users, counts, value distributions, rolling stats, and latency percentiles. Uses probabilistic sketches (HyperLogLog, Count-Min Sketch) for scale-friendly estimates.
 
-Implements a simulated streaming data pipeline using Python's asyncio for real-time event processing. It demonstrates how to efficiently track statistics—such as unique users, user frequencies, value distributions, rolling mean/variance, and latency percentiles—on high-throughput data streams. Probabilistic data structures like HyperLogLog and Count-Min Sketch are used for scalable, memory-efficient estimation of unique counts and item frequencies, which are critical in large-scale systems where exact computation is costly. 
+## Multi-Agent Patterns (LangChain + LangGraph)
 
-This approach is useful for studying real-world scenarios like monitoring user activity, detecting anomalies, or analyzing metrics in web services, IoT, or financial platforms. In production, the pipeline could be extended to handle distributed sources, integrate with message brokers, and persist results for further analytics.
-
-## Streaming API
-
-[streaming-backend.py](streaming-backend.py)
-
-Implements a streaming API using FastAPI and asyncio. It provides endpoints for creating jobs, retrieving job status, and cancelling jobs. It supports real-time updates through Server-Sent Events (SSE), allowing clients to see results as they become available. 
-
-This is motivated by LLM applications where responses can be streamed incrementally, enhancing user experience by reducing perceived latency. In production, the app could be extended with authentication, persistent storage, and integration with background workers or backend services for doing actual processing. Rather than sending the entire result with each update, it would likely send small deltas (chunks/batches). With replay buffers late subscribers could catch up.
-
-Run with: `uvicorn async-backend:app --reload`
-
-[streaming-frontend.html](streaming-frontend.html)
-
-Open in a web browser to demo the API.
+- `langchain-multi-agent-patterns/router.py`  
+  Router pattern: classify a query and route to specialized agents, then synthesize results.
+- `langchain-multi-agent-patterns/supervisor.py`  
+  Supervisor pattern: a central coordinator delegates to expert agents.
+- `langchain-multi-agent-patterns/state-machine.py`  
+  State machine pattern: a single agent changes behavior across workflow steps.
+- `langchain-multi-agent-patterns/skills.py`  
+  Progressive disclosure of skills: load only needed instructions on demand.

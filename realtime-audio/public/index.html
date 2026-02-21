@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Realtime Push-to-Talk Demo</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 12px;
+        background: #d4d0c8;
+        color: #000;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 14px;
+      }
+
+      .app {
+        width: 760px;
+        max-width: 100%;
+        margin: 0 auto;
+        padding: 12px;
+        background: #efefef;
+        border: 1px solid #666;
+      }
+
+      h1 {
+        margin-top: 0;
+        margin-bottom: 10px;
+        font-size: 22px;
+        font-weight: bold;
+      }
+
+      .row {
+        margin-bottom: 10px;
+      }
+
+      button {
+        border: 1px solid #666;
+        background: #e5e5e5;
+        color: #000;
+        padding: 4px 10px;
+        margin-right: 6px;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        color: #777;
+        cursor: not-allowed;
+      }
+
+      #connectBtn.connected {
+        background: #d9f2d9;
+      }
+
+      #pttBtn {
+        background: #e5e5e5;
+      }
+
+      #pttBtn.active {
+        background: #cfcfcf;
+      }
+
+      #hangupBtn {
+        background: #f0d0d0;
+      }
+
+      .status {
+        border: 1px solid #999;
+        background: #fff;
+        padding: 6px;
+        margin-bottom: 10px;
+      }
+
+      .log {
+        border: 1px solid #999;
+        padding: 6px;
+        background: #fff;
+        height: 280px;
+        overflow: auto;
+        margin-top: 8px;
+      }
+
+      .log p {
+        margin: 0 0 6px;
+        line-height: 1.3;
+      }
+
+      .hint {
+        margin: 10px 0 0;
+      }
+
+      details {
+        margin-top: 10px;
+      }
+
+      .user {
+        color: #003399;
+      }
+
+      .assistant {
+        color: #006600;
+      }
+
+      .meta {
+        color: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <h1>Realtime Voice Chat (Push-to-Talk)</h1>
+      <div class="row">
+        <button id="connectBtn">Connect</button>
+        <button id="pttBtn" disabled>Hold to talk (Space)</button>
+        <button id="hangupBtn" disabled>Hang up</button>
+      </div>
+      <div id="status" class="status">Disconnected</div>
+      <p class="hint">Hold the button or press and hold Space to talk. Releasing sends your turn.</p>
+      <details>
+        <summary>Debug events (optional)</summary>
+        <div id="log" class="log"></div>
+      </details>
+      <audio id="remoteAudio" autoplay></audio>
+    </main>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

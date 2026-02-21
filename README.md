@@ -32,6 +32,25 @@ Client UI            FastAPI /stream
 Run the backend: `uvicorn streaming-backend:app --reload`  
 Open the HTML file directly in a browser to demo.
 
+## Realtime Audio (WebRTC + TypeScript)
+
+Requires Node.js 20+
+
+- Backend: `realtime-audio/src/server.ts`  
+  Express server with `GET /token` to mint ephemeral Realtime sessions and static hosting for the demo page.
+- Frontend: `realtime-audio/public/index.html`  
+  Single-page push-to-talk voice chat client using WebRTC data channel events for commit/response and interruption (`response.cancel` + `output_audio_buffer.clear`).
+
+Run the backend:
+
+```bash
+cd realtime-audio
+npm install
+npm run dev
+```
+
+Access the frontend at http://localhost:3000/index.html
+
 ## Streaming Data Pipeline
 
 - `streaming-data-pipeline.py`  

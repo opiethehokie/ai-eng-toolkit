@@ -6,7 +6,28 @@ Small, focused examples from my AI engineering explorations. This repo is meant 
 
 - Python `>=3.13`
 - Install deps: `uv sync`
-- For LangChain demos: set `OPENAI_API_KEY` (via `.env` or env vars)
+- For LLM demos: set `OPENAI_API_KEY` (via `.env` or env vars)
+
+## LiteLLM Gateway (Marimo)
+
+LiteLLM gives us unified provider/model invocation via `Router` and `completion` APIs, built-in retry and fallback behavior, and normalized response and error interfaces across providers.
+
+- App: `litellm-gateway.py`
+- Goal: demonstrate retries, fallbacks, and quality escalation with a cost-first routing policy.
+- Uses LiteLLM Router directly for retries and fallback routing.
+- Uses fault injection controls to deterministically trigger retry/fallback paths.
+
+Run it:
+
+```bash
+marimo run litellm-gateway.py
+```
+
+Edit it:
+
+```bash
+marimo run litellm-gateway.py
+```
 
 ## Streaming API (LLM-style SSE)
 

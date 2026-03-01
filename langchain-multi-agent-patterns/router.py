@@ -74,31 +74,31 @@ def search_issues(query: str) -> str:
 @tool
 def search_prs(query: str) -> str:
     """Search pull requests for implementation details."""
-    return f"PR #156 added JWT authentication, PR #178 updated OAuth scopes"
+    return "PR #156 added JWT authentication, PR #178 updated OAuth scopes"
 
 
 @tool
 def search_notion(query: str) -> str:
     """Search Notion workspace for documentation."""
-    return f"Found documentation: 'API Authentication Guide' - covers OAuth2 flow, API keys, and JWT tokens"
+    return "Found documentation: 'API Authentication Guide' - covers OAuth2 flow, API keys, and JWT tokens"
 
 
 @tool
 def get_page(page_id: str) -> str:
     """Get a specific Notion page by ID."""
-    return f"Page content: Step-by-step authentication setup instructions"
+    return "Page content: Step-by-step authentication setup instructions"
 
 
 @tool
 def search_slack(query: str) -> str:
     """Search Slack messages and threads."""
-    return f"Found discussion in #engineering: 'Use Bearer tokens for API auth, see docs for refresh flow'"
+    return "Found discussion in #engineering: 'Use Bearer tokens for API auth, see docs for refresh flow'"
 
 
 @tool
 def get_thread(thread_id: str) -> str:
     """Get a specific Slack thread."""
-    return f"Thread discusses best practices for API key rotation"
+    return "Thread discusses best practices for API key rotation"
 
 
 # Models and agents

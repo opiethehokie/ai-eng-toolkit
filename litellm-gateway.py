@@ -4,9 +4,9 @@ __generated_with = "0.20.1"
 app = marimo.App(width="medium")
 
 
-app._unparsable_cell(
-    r"""
-    ifrom collections.abc import Callable
+@app.cell
+def _():
+    from collections.abc import Callable
 
     import marimo as mo
 
@@ -14,9 +14,7 @@ app._unparsable_cell(
         from litellm import completion
     except Exception:  # pragma: no cover - import guard for notebook UX
         completion = None
-    """,
-    name="_"
-)
+    return Callable, completion, mo
 
 
 @app.cell

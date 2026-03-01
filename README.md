@@ -233,3 +233,38 @@ Use LLM triage mode instead of mock:
 
 ```bash
 export TRIAGE_AGENT_MODE=openai
+```
+
+---
+
+## 7) Local Webhook Demo (No external services)
+
+### What it demonstrates
+
+- Event-driven local communication between two decoupled processes
+- A sender (`webhook-watcher.py`) that emits webhook `POST` requests
+- A receiver (`webhook-receiver.py`) that validates, logs, and persists events
+
+### Run
+
+Terminal 1:
+
+```bash
+python webhook-receiver.py
+```
+
+Terminal 2:
+
+```bash
+python webhook-watcher.py
+```
+
+Terminal 3 (trigger events by creating files):
+
+```bash
+mkdir -p incoming
+touch incoming/report.csv
+touch incoming/todo.txt
+```
+
+You should see receiver logs in terminal 1 and appended JSON lines in `webhook-events.jsonl`.

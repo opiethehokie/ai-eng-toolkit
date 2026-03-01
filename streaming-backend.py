@@ -52,6 +52,7 @@ async def token_stream(text: str, delay_ms: int, last_event_id: Optional[int]) -
         return
 
     start_index = 1
+    # Event IDs map 1:1 to token indexes so clients can resume exactly where they stopped.
     if last_event_id is not None:
         start_index = max(1, last_event_id + 1)
 
@@ -79,6 +80,7 @@ def json_dumps(obj: object) -> str:
 async def stream_endpoint(body: StreamRequest, request: Request):
     last_event_id = request.headers.get("last-event-id")
     last_id = None
+    # SSE resume support via Last-Event-ID.
     if last_event_id is not None:
         try:
             last_id = int(last_event_id)
@@ -90,6 +92,7 @@ async def stream_endpoint(body: StreamRequest, request: Request):
         yield sse("ping", json_dumps({"ts_ms": now_ms()}), event_id=0)
 
         async for chunk in token_stream(body.text, body.delay_ms, last_id):
+            # Stop work quickly when the client disconnects to avoid wasted compute.
             if await request.is_disconnected():
                 break
             yield chunk

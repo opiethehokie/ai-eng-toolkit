@@ -1,68 +1,114 @@
-# AI Engineering
+# AI Engineering Toolkit
 
-Small, focused examples from my AI engineering explorations. This repo is meant to be a portfolio of practical patterns, not a framework.
+Small demo projects that capture practical AI engineering patterns. This repo is intentionally not a framework. It is a set of runnable references for recurring problems: routing, streaming, durability, realtime UX, and context management.
 
 ## Setup
 
+### Prerequisites
+
 - Python `>=3.13`
-- Install deps: `uv sync`
-- For LLM demos: set `OPENAI_API_KEY` (via `.env` or env vars)
+- `uv` for Python dependency management
+- Optional: Node.js `>=20` (for `realtime-audio/`)
+- Optional: Temporal CLI (for the Temporal demo)
+- Optional: `OPENAI_API_KEY` in `.env` (for LLM-backed demos)
 
-## LiteLLM Gateway (Marimo)
+### Install
 
-LiteLLM gives us unified provider/model invocation via `Router` and `completion` APIs, built-in retry and fallback behavior, and normalized response and error interfaces across providers.
+```bash
+uv sync
+```
 
-- App: `litellm-gateway.py`
-- Goal: demonstrate retries, fallbacks, and quality escalation with a cost-first routing policy.
-- Uses LiteLLM Router directly for retries and fallback routing.
-- Uses fault injection controls to deterministically trigger retry/fallback paths.
+## Repo map (what to open first)
 
-Run it:
+- `litellm-gateway.py`: Marimo notebook for retry/fallback/escalation gateway behavior
+- `streaming-backend.py`: FastAPI SSE token-stream backend with resume support
+- `streaming-frontend.html`: zero-build browser client for SSE streaming demo
+- `streaming-data-pipeline.py`: asyncio stream processing + live terminal dashboard
+- `temporal-agent.py`: durable incident triage workflow with human approval signal
+- `langchain-multi-agent-patterns/`: four multi-agent architecture patterns
+- `realtime-audio/`: push-to-talk WebRTC demo with OpenAI Realtime API
+
+---
+
+## 1) LiteLLM Gateway Demo (Retries, Fallbacks, Quality Escalation)
+
+### Files
+
+- `litellm-gateway.py` (Marimo app)
+
+### What it demonstrates
+
+- Cost-first primary model routing
+- Retry behavior for transient failures
+- Fallback to higher-quality model when retries fail
+- Optional quality-based escalation even after a successful primary call
+- Deterministic fault injection so failure paths are demoable on demand
+
+### Why it’s structured this way
+
+- Real gateways fail in non-happy-path ways; the notebook makes those paths explicit.
+- `Router` is used directly to keep retry/fallback behavior close to what production gateways do.
+- Quality escalation is separated from retry/fallback to show that “success” and “sufficient quality” are different decisions.
+
+### Run
 
 ```bash
 marimo run litellm-gateway.py
 ```
 
-Edit it:
+---
+
+## 2) Streaming API Demo (SSE, LLM-style token delivery)
+
+### Files
+
+- `streaming-backend.py`
+- `streaming-frontend.html`
+
+### What it demonstrates
+
+- `POST /stream` emits SSE frames: `ping`, `token`, `done`
+- `Last-Event-ID` resume handling for interrupted streams
+- Browser client using `fetch` + `ReadableStream` (not `EventSource`, because request body is needed)
+
+### Why it’s structured this way
+
+- Mirrors how modern LLM streaming endpoints behave, but in a tiny inspectable form.
+- Resume support is included because flaky networks are normal in real clients.
+- Initial `ping` reduces perceived latency and confirms stream setup quickly.
+
+### Run
 
 ```bash
-marimo run litellm-gateway.py
+uvicorn streaming-backend:app --reload
 ```
 
-## Streaming API (LLM-style SSE)
+Then open `streaming-frontend.html` directly in a browser and point at `http://127.0.0.1:8000/stream` (already set in the file).
 
-- Backend: `streaming-backend.py`  
-  Single `POST /stream` endpoint that streams tokens via Server-Sent Events, supports `Last-Event-ID` resume, and emits `ping/token/done` events.
-- Frontend: `streaming-frontend.html`  
-  Minimal fetch + `ReadableStream` client with stop/resume controls.
+---
 
-```
-Client UI            FastAPI /stream
-   |  POST (text)         |
-   |--------------------->|
-   |  SSE: ping           |
-   |<---------------------|
-   |  SSE: token ...      |
-   |<---------------------|
-   |  SSE: token ...      |
-   |<---------------------|
-   |  SSE: done           |
-   |<---------------------|
-```
+## 3) Realtime Audio Demo (WebRTC Push-to-Talk)
 
-Run the backend: `uvicorn streaming-backend:app --reload`  
-Open the HTML file directly in a browser to demo.
+### Files
 
-## Realtime Audio (WebRTC + TypeScript)
+- `realtime-audio/src/server.ts`: Express server + token minting proxy
+- `realtime-audio/public/index.html`: simple UI
+- `realtime-audio/public/app.js`: WebRTC + realtime event protocol handling
 
-Requires Node.js 20+
+### What it demonstrates
 
-- Backend: `realtime-audio/src/server.ts`  
-  Express server with `GET /token` to mint ephemeral Realtime sessions and static hosting for the demo page.
-- Frontend: `realtime-audio/public/index.html`  
-  Single-page push-to-talk voice chat client using WebRTC data channel events for commit/response and interruption (`response.cancel` + `output_audio_buffer.clear`).
+- Server-side minting of ephemeral realtime session keys via `GET /token`
+- Browser microphone capture + WebRTC negotiation
+- Push-to-talk turns, interruption handling (`response.cancel` + `output_audio_buffer.clear`)
+- Transcript/debug event display in UI
 
-Run the backend:
+### Why it’s structured this way
+
+- Keeps permanent API keys off the browser.
+- Uses a minimal static server to reduce moving parts while preserving realistic auth flow.
+- Push-to-talk control makes turn boundaries explicit, which is useful for demos and debugging.
+
+### Run
 
 ```bash
 cd realtime-audio
@@ -70,57 +116,120 @@ npm install
 npm run dev
 ```
 
-Access the frontend at http://localhost:3000/index.html
+Open [http://localhost:3000/index.html](http://localhost:3000/index.html)
 
-## Streaming Data Pipeline
+---
 
-- `streaming-data-pipeline.py`  
-  Simulated real-time pipeline using `asyncio` that tracks unique users, counts, value distributions, rolling stats, and latency percentiles. Uses probabilistic sketches (HyperLogLog, Count-Min Sketch) for scale-friendly estimates.
+## 4) Streaming Data Pipeline Demo
 
-## Multi-Agent Patterns (LangChain + LangGraph)
+### Files
 
-- `langchain-multi-agent-patterns/router.py`  
-  Router pattern: classify a query and route to specialized agents, then synthesize results.
-- `langchain-multi-agent-patterns/supervisor.py`  
-  Supervisor pattern: a central coordinator delegates to expert agents.
-- `langchain-multi-agent-patterns/state-machine.py`  
-  State machine pattern: a single agent changes behavior across workflow steps.
-- `langchain-multi-agent-patterns/skills.py`  
-  Progressive disclosure of skills: load only needed instructions on demand.
+- `streaming-data-pipeline.py`
 
-## Durable Agent Workflow (Temporal + Agent SDK)
+### What it demonstrates
 
-Demonstrate durable execution for an incident triage agent with approval signals and replay validation.
+- Async pub/sub simulation with bounded queue backpressure
+- Batch processing by size or timeout
+- Rolling stats and latency percentiles
+- Approximate-at-scale counting via HyperLogLog and Count-Min Sketch
+- Live terminal dashboard + dynamic p99 anomaly threshold
 
-Quickstart:
+### Why it’s structured this way
 
-Install temporal CLI per https://temporal.io/setup/install-temporal-cli.
+- Emphasizes operations-style observability (latency, queue depth, anomalies), not just correctness.
+- Uses probabilistic sketches to show scale-minded patterns without large infrastructure.
+
+### Run
 
 ```bash
-# terminal 1: Temporal dev server
+python streaming-data-pipeline.py
+```
+
+---
+
+## 5) Multi-Agent Patterns (LangChain + LangGraph)
+
+### Files
+
+- `langchain-multi-agent-patterns/router.py`
+- `langchain-multi-agent-patterns/supervisor.py`
+- `langchain-multi-agent-patterns/state-machine.py`
+- `langchain-multi-agent-patterns/skills.py`
+
+### What each pattern is for
+
+- `router.py`: classify a query, fan out to domain agents, synthesize answer
+- `supervisor.py`: central coordinator delegates to specialist sub-agents/tools
+- `state-machine.py`: one agent whose prompt/tools change by workflow step
+- `skills.py`: progressive disclosure; load detailed skill context only when needed
+
+### Why these examples exist
+
+- They capture four commonly-confused architectures side-by-side.
+- Each file is intentionally standalone so tradeoffs are visible without framework noise.
+
+### Run (any example)
+
+```bash
+python langchain-multi-agent-patterns/router.py
+python langchain-multi-agent-patterns/supervisor.py
+python langchain-multi-agent-patterns/state-machine.py
+python langchain-multi-agent-patterns/skills.py
+```
+
+Requires `OPENAI_API_KEY`.
+
+---
+
+## 6) Durable Agent Workflow Demo (Temporal + Human Approval)
+
+### Files
+
+- `temporal-agent.py`
+
+### What it demonstrates
+
+- Durable workflow orchestration around incident triage
+- Activity retries with explicit retry policy
+- Human-in-the-loop approval via workflow signal
+- Timeout-based escalation when no approval arrives
+- Workflow history replay validation for determinism checks
+- Swappable triage mode: deterministic mock vs LLM-backed agent
+
+### Why it’s structured this way
+
+- Durable execution matters most where human latency and system retries collide.
+- The workflow separates “decision generation” from “remediation execution” to make governance points explicit.
+- Replay is included because durable systems fail silently if nondeterminism sneaks in.
+
+### Run
+
+Install Temporal CLI: [https://temporal.io/setup/install-temporal-cli](https://temporal.io/setup/install-temporal-cli)
+
+```bash
+# terminal 1
 temporal server start-dev --ip 127.0.0.1 --port 7233
 
-# terminal 2: worker
-python -m temporal-agent worker
+# terminal 2
+python temporal-agent.py worker
 
-# terminal 3: start workflow
-python -m temporal-agent start --wait
+# terminal 3
+python temporal-agent.py start --wait
 ```
 
-Then signal approval in another terminal:
+Approve from another terminal:
 
 ```bash
-python -m temporal-agent approve --workflow-id <workflow-id> --reviewer you --note "approved for demo"
+python temporal-agent.py approve --workflow-id <workflow-id> --reviewer you --note "approved for demo"
 ```
 
-Replay example:
+Replay:
 
 ```bash
-python -m temporal-agent replay --workflow-id <workflow-id>
+python temporal-agent.py replay --workflow-id <workflow-id>
 ```
 
-Toggle agent mode between `openai` and `mock`:
+Use LLM triage mode instead of mock:
 
 ```bash
 export TRIAGE_AGENT_MODE=openai
-```

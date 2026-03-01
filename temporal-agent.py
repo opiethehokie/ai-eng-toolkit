@@ -1,3 +1,18 @@
+"""Temporal incident-triage demo.
+
+Quick concept map:
+- Workflow: durable orchestration logic that Temporal replays from event history.
+- Activity: side-effecting step (API call, DB write, LLM call) invoked by a workflow.
+- Signal: external async input sent to a running workflow (used here for human approval).
+- Replay: re-run workflow code against stored history to verify determinism.
+
+Why Temporal in this project:
+- This demo includes retries, long waits, and human-in-the-loop approval.
+- Temporal persists workflow state/history so a worker crash does not lose progress.
+- We avoid writing custom "resume from DB", retry schedulers, and timeout plumbing.
+- Net effect: we focus on business logic while Temporal handles durability mechanics.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -18,7 +33,7 @@ load_dotenv()
 
 TEMPORAL_ADDRESS = os.getenv("TEMPORAL_ADDRESS", "localhost:7233")
 TASK_QUEUE = os.getenv("TEMPORAL_TASK_QUEUE", "incident-triage")
-AGENT_MODE = os.getenv("TRIAGE_AGENT_MODE", "openai").lower()
+AGENT_MODE = os.getenv("TRIAGE_AGENT_MODE", "mock").lower()
 AGENT_MODEL = os.getenv("TRIAGE_AGENT_MODEL", "gpt-4.1-mini")
 
 
@@ -48,6 +63,7 @@ def _mock_triage(incident: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _agent_triage(incident: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    # Demo switch: keep workflows runnable without external LLM dependencies.
     if AGENT_MODE == "mock" or not os.getenv("OPENAI_API_KEY"):
         return _mock_triage(incident)
 
@@ -86,6 +102,7 @@ async def _agent_triage(incident: dict[str, Any], context: dict[str, Any]) -> di
     }
 
 
+# Activity = effectful unit of work. Temporal can retry it independently (should be idempotent).
 @activity.defn
 async def fetch_context(incident: dict[str, Any]) -> dict[str, Any]:
     activity.logger.info("Fetching context for %s", incident["incident_id"])
@@ -95,17 +112,20 @@ async def fetch_context(incident: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# Activity = effectful unit of work. Kept separate so failures/retries are isolated.
 @activity.defn
 async def triage(incident: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
     return await _agent_triage(incident, context)
 
 
+# Activity = side-effect boundary where remediation would call real systems.
 @activity.defn
 async def remediate(incident: dict[str, Any], decision: dict[str, Any]) -> str:
     first_step = (decision.get("remediation_steps") or ["No step"])[0]
     return f"Executed remediation for {incident['service']}: {first_step}"
 
 
+# Workflow = durable control plane. Should orchestrate; avoid doing side effects directly here.
 @workflow.defn
 class IncidentTriageWorkflow:
     def __init__(self) -> None:
@@ -113,6 +133,8 @@ class IncidentTriageWorkflow:
 
     @workflow.run
     async def run(self, incident: dict[str, Any], approval_timeout_seconds: int = 300) -> dict[str, Any]:
+        # Workflow code is your durable state machine: Temporal replays this logic from history.
+        # Activities isolate side effects; RetryPolicy demonstrates durable retry semantics.
         context = await workflow.execute_activity(
             fetch_context,
             args=[incident],
@@ -126,8 +148,11 @@ class IncidentTriageWorkflow:
             retry_policy=RetryPolicy(maximum_attempts=3),
         )
 
+        # Workflows can "wait forever" safely; Temporal persists state between waits.
         if decision.get("needs_human_approval", False):
             deadline = workflow.now() + timedelta(seconds=approval_timeout_seconds)
+            # Human-in-the-loop gate: workflow parks until signal arrives or timeout expires.
+            # This wait is resilient to restarts because time/progress are recorded in workflow history.
             while self.approval is None and workflow.now() < deadline:
                 await workflow.sleep(5)
 
@@ -163,11 +188,14 @@ class IncidentTriageWorkflow:
 
     @workflow.signal
     def approve(self, reviewer: str, note: str = "approved") -> None:
+        # Signal handler: asynchronous external input that mutates workflow state.
         self.approval = {"reviewer": reviewer, "note": note}
 
 
 async def cmd_worker(args: argparse.Namespace) -> None:
     client = await Client.connect(args.address)
+    # Worker polls task queue and executes both workflow tasks and activity tasks.
+    # If a worker dies mid-run, a new worker can continue from persisted workflow history.
     worker = Worker(
         client,
         task_queue=args.task_queue,
@@ -202,6 +230,7 @@ async def cmd_start(args: argparse.Namespace) -> None:
 async def cmd_approve(args: argparse.Namespace) -> None:
     client = await Client.connect(args.address)
     handle = client.get_workflow_handle(args.workflow_id)
+    # Signal from CLI to running workflow instance.
     await handle.signal(IncidentTriageWorkflow.approve, args=[args.reviewer, args.note])
     print("approval signal sent")
 
@@ -209,6 +238,7 @@ async def cmd_approve(args: argparse.Namespace) -> None:
 async def cmd_replay(args: argparse.Namespace) -> None:
     client = await Client.connect(args.address)
     history = await client.get_workflow_handle(args.workflow_id).fetch_history()
+    # Replay is the determinism check: workflow code must reproduce decisions from history.
     await Replayer(workflows=[IncidentTriageWorkflow]).replay_workflow(history)
     print(f"replay passed for workflow_id={args.workflow_id}")
 

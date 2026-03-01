@@ -168,6 +168,7 @@ def _(Any, Callable, GatewayResult):
 
     class DeterministicFailureInjector:
         def __init__(self, fail_first_n: int):
+            # Forces predictable transient failures so retry/fallback paths are easy to demo.
             self.fail_first_n = fail_first_n
             self.calls_by_model: dict[str, int] = {}
 
@@ -248,6 +249,7 @@ def _(Any, Callable, GatewayResult):
             attempts: list[dict[str, Any]],
         ):
             original_completion = litellm.completion
+            # Patch completion once so every attempt is observable (latency/cost/status) in one place.
 
             def wrapped_completion(*args, **kwargs):
                 model_id = str(kwargs.get("model") or "")
@@ -325,6 +327,7 @@ def _(Any, Callable, GatewayResult):
                 router_model_list.append({"model_name": "fallback", "litellm_params": {"model": fallback_model_id}})
 
             router = Router(
+                # Router owns retry + fallback orchestration between cost-first and quality models.
                 model_list=router_model_list,
                 num_retries=self.max_retries,
                 fallbacks=[{"primary": ["fallback"]}] if enable_fallback else [],
@@ -360,6 +363,7 @@ def _(Any, Callable, GatewayResult):
             final_quality = 0.72 if final_model == "cheap_primary" else 0.90
 
             if enable_quality_escalation and enable_fallback and final_model == "cheap_primary" and final_quality < self.quality_threshold:
+                # Separate policy from reliability: successful primary responses can still be escalated for quality.
                 attempts.append(
                     {
                         "model_alias": "cheap_primary",

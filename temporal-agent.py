@@ -8,14 +8,17 @@ import uuid
 from datetime import timedelta
 from typing import Any
 
+from dotenv import load_dotenv
 from temporalio import activity, workflow
 from temporalio.client import Client
 from temporalio.common import RetryPolicy
 from temporalio.worker import Replayer, Worker
 
+load_dotenv()
+
 TEMPORAL_ADDRESS = os.getenv("TEMPORAL_ADDRESS", "localhost:7233")
 TASK_QUEUE = os.getenv("TEMPORAL_TASK_QUEUE", "incident-triage")
-AGENT_MODE = os.getenv("TRIAGE_AGENT_MODE", "mock").lower()
+AGENT_MODE = os.getenv("TRIAGE_AGENT_MODE", "openai").lower()
 AGENT_MODEL = os.getenv("TRIAGE_AGENT_MODEL", "gpt-4.1-mini")
 
 
@@ -192,10 +195,6 @@ async def cmd_start(args: argparse.Namespace) -> None:
         task_queue=args.task_queue,
     )
     print(f"started workflow_id={handle.id}")
-    print(
-        "approve with:\n"
-        f"  python -m demo approve --workflow-id {handle.id} --reviewer you"
-    )
     if args.wait:
         print(json.dumps(await handle.result(), indent=2))
 

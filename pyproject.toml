@@ -9,7 +9,9 @@ dependencies = [
     "langchain[openai]>=1.2.8",
     "litellm>=1.76.0",
     "marimo>=0.12.8",
+    "openai-agents",
     "pyprobables==0.6.2",
+    "temporalio",
     "uvicorn>=0.40.0",
 ]
 

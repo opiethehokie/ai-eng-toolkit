@@ -87,3 +87,40 @@ Access the frontend at http://localhost:3000/index.html
   State machine pattern: a single agent changes behavior across workflow steps.
 - `langchain-multi-agent-patterns/skills.py`  
   Progressive disclosure of skills: load only needed instructions on demand.
+
+## Durable Agent Workflow (Temporal + Agent SDK)
+
+Demonstrate durable execution for an incident triage agent with approval signals and replay validation.
+
+Quickstart:
+
+Install temporal CLI per https://temporal.io/setup/install-temporal-cli.
+
+```bash
+# terminal 1: Temporal dev server
+temporal server start-dev --ip 127.0.0.1 --port 7233
+
+# terminal 2: worker
+python -m temporal-agent worker
+
+# terminal 3: start workflow
+python -m temporal-agent start --wait
+```
+
+Then signal approval in another terminal:
+
+```bash
+python -m temporal-agent approve --workflow-id <workflow-id> --reviewer you --note "approved for demo"
+```
+
+Replay example:
+
+```bash
+python -m temporal-agent replay --workflow-id <workflow-id>
+```
+
+Toggle agent mode between `openai` and `mock`:
+
+```bash
+export TRIAGE_AGENT_MODE=openai
+```

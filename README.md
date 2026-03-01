@@ -268,3 +268,41 @@ touch incoming/todo.txt
 ```
 
 You should see receiver logs in terminal 1 and appended JSON lines in `webhook-events.jsonl`.
+
+---
+
+## 8) Responses WebSocket Mode Demo (vs HTTP Streaming)
+
+### Files
+
+- `websocket-mode.py`
+
+### What it demonstrates
+
+- Same multi-turn function-calling workflow executed in two transport modes:
+  - persistent WebSocket (`/v1/responses` via `client.responses.connect()`)
+  - HTTP streaming baseline (`client.responses.stream()` per turn)
+- Deterministic local tool (`lookup_order_status`) with configurable artificial latency
+
+### Why use WebSocket mode vs alternatives
+
+- This demo isolates transport behavior while keeping prompt/tool logic identical.
+- For repeated tool loops, WebSocket mode keeps one socket open across turns instead of opening a new HTTP stream each turn.
+- The side-by-side metrics make the tradeoff visible without adding frontend or infra complexity.
+
+### Run
+
+Single mode:
+
+```bash
+python websocket-mode.py --mode ws
+python websocket-mode.py --mode http
+```
+
+Comparison mode:
+
+```bash
+python websocket-mode.py --mode both --runs 3 --tool-calls 4 --tool-latency-ms 100
+```
+
+Requires `OPENAI_API_KEY`.
